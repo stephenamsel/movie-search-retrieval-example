@@ -31,106 +31,52 @@ RSpec.describe "/movies", type: :request do
   let(:valid_headers) {
     {}
   }
+
+  let(:movie_parameters) { {:api_key=>"a99cc60fc2b34dbb18cb806b8a88ed14", :query=>"speed"}  }
+  let(:movie_db_uri) { "https://api.themoviedb.org/3/search/movie?#{movie_parameters.to_query}" }
   before(:each) do
-    
+    movie_db_sample_return = {"page"=>1,
+    "results"=>
+     [{"adult"=>false,
+       "backdrop_path"=>"/pE1WR83KMP1wMzmqOLMUKUq8M6V.jpg",
+       "genre_ids"=>[28, 12, 80],
+       "id"=>1637,
+       "original_language"=>"en",
+       "original_title"=>"Speed",
+       "overview"=>
+        "Jack Traven, an LAPD cop on SWAT detail, and veteran SWAT officer Harry Temple thwart an extortionist-bomber's scheme for a $3 million ransom. As they corner the bomber, he flees and detonates a bomb vest, seemingly killing himself. Weeks later, Jack witnesses a mass transit city bus explode and nearby a pay phone rings. On the phone is that same bomber looking for vengeance and the money he's owed. He gives a personal challenge to Jack: a bomb is rigged on another city bus - if it slows down below 50 mph, it will explode - bad enough any day, but a nightmare in LA traffic. And that's just the beginning...",
+       "popularity"=>72.55,
+       "poster_path"=>"/o1Zs7VaS9y2GYH9CLeWxaVLWd3x.jpg",
+       "release_date"=>"1994-06-09",
+       "title"=>"Speed",
+       "video"=>false,
+       "vote_average"=>7.129,
+       "vote_count"=>5823}]
+    }.to_json
+    WebMock.stub_request(:get, movie_db_uri).to_return(
+      :status => 200, 
+      :body => movie_db_sample_return, 
+      :headers => {}
+      )
   end
 
   describe "GET /index" do
-    it "renders a successful response" do
+
+
+    it "renders a 422 response with no query" do
       # Movie.create! valid_attributes
       get movies_url, headers: valid_headers, as: :json
-      expect(response).to be_successful
+      expect(response).to eq(422)
     end
 
     it "forwards requests to MovieDB" do
+      # NOTE: passing a "params" argument passes Body parameters and converts the Request into a Post
+      # There is no route corresponding to POST for this URI
 
+      expected_params = { api_key: 'a99cc60fc2b34dbb18cb806b8a88ed14', query: 'speed' }
+      uri = "#{movies_url}?query=speed"
+      expect(Faraday).to receive(:get).with('https://api.themoviedb.org/3/search/movie', expected_params).and_call_original
+      get uri, headers: valid_headers, as: :json
     end
   end
-
-=begin
-  describe "GET /show" do
-    it "renders a successful response" do
-      movie = Movie.create! valid_attributes
-      get movie_url(movie), as: :json
-      expect(response).to be_successful
-    end
-  end
-
-  describe "POST /create" do
-    context "with valid parameters" do
-      it "creates a new Movie" do
-        expect {
-          post movies_url,
-               params: { movie: valid_attributes }, headers: valid_headers, as: :json
-        }.to change(Movie, :count).by(1)
-      end
-
-      it "renders a JSON response with the new movie" do
-        post movies_url,
-             params: { movie: valid_attributes }, headers: valid_headers, as: :json
-        expect(response).to have_http_status(:created)
-        expect(response.content_type).to match(a_string_including("application/json"))
-      end
-    end
-
-    context "with invalid parameters" do
-      it "does not create a new Movie" do
-        expect {
-          post movies_url,
-               params: { movie: invalid_attributes }, as: :json
-        }.to change(Movie, :count).by(0)
-      end
-
-      it "renders a JSON response with errors for the new movie" do
-        post movies_url,
-             params: { movie: invalid_attributes }, headers: valid_headers, as: :json
-        expect(response).to have_http_status(:unprocessable_entity)
-        expect(response.content_type).to match(a_string_including("application/json"))
-      end
-    end
-  end
-
-  describe "PATCH /update" do
-    context "with valid parameters" do
-      let(:new_attributes) {
-        skip("Add a hash of attributes valid for your model")
-      }
-
-      it "updates the requested movie" do
-        movie = Movie.create! valid_attributes
-        patch movie_url(movie),
-              params: { movie: new_attributes }, headers: valid_headers, as: :json
-        movie.reload
-        skip("Add assertions for updated state")
-      end
-
-      it "renders a JSON response with the movie" do
-        movie = Movie.create! valid_attributes
-        patch movie_url(movie),
-              params: { movie: new_attributes }, headers: valid_headers, as: :json
-        expect(response).to have_http_status(:ok)
-        expect(response.content_type).to match(a_string_including("application/json"))
-      end
-    end
-
-    context "with invalid parameters" do
-      it "renders a JSON response with errors for the movie" do
-        movie = Movie.create! valid_attributes
-        patch movie_url(movie),
-              params: { movie: invalid_attributes }, headers: valid_headers, as: :json
-        expect(response).to have_http_status(:unprocessable_entity)
-        expect(response.content_type).to match(a_string_including("application/json"))
-      end
-    end
-  end
-
-  describe "DELETE /destroy" do
-    it "destroys the requested movie" do
-      movie = Movie.create! valid_attributes
-      expect {
-        delete movie_url(movie), headers: valid_headers, as: :json
-      }.to change(Movie, :count).by(-1)
-    end
-  end
-=end
 end
