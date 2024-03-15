@@ -34,49 +34,73 @@ RSpec.describe "/movies", type: :request do
 
   let(:movie_parameters) { {:api_key=>"a99cc60fc2b34dbb18cb806b8a88ed14", :query=>"speed"}  }
   let(:movie_db_uri) { "https://api.themoviedb.org/3/search/movie?#{movie_parameters.to_query}" }
+  let(:quiery_speed_uri) { "#{movies_url}?query=speed" }
+  let(:movie_db_sample) {{
+    "page"=>1,
+    "results"=>[{"adult"=>false,
+    "backdrop_path"=>"/pE1WR83KMP1wMzmqOLMUKUq8M6V.jpg",
+    "genre_ids"=>[28, 12, 80],
+    "id"=>1637,
+    "original_language"=>"en",
+    "original_title"=>"Speed",
+    "overview"=>
+     "Jack Traven, an LAPD cop on SWAT detail, and veteran SWAT officer Harry Temple thwart an extortionist-bomber's scheme for a $3 million ransom. As they corner the bomber, he flees and detonates a bomb vest, seemingly killing himself. Weeks later, Jack witnesses a mass transit city bus explode and nearby a pay phone rings. On the phone is that same bomber looking for vengeance and the money he's owed. He gives a personal challenge to Jack: a bomb is rigged on another city bus - if it slows down below 50 mph, it will explode - bad enough any day, but a nightmare in LA traffic. And that's just the beginning...",
+    "popularity"=>72.55,
+    "poster_path"=>"/o1Zs7VaS9y2GYH9CLeWxaVLWd3x.jpg",
+    "release_date"=>"1994-06-09",
+    "title"=>"Speed",
+    "video"=>false,
+    "vote_average"=>7.129,
+    "vote_count"=>5823}]
+  }}
+
+  let(:expected_params) { { api_key: 'a99cc60fc2b34dbb18cb806b8a88ed14', query: 'speed' } }
+
   before(:each) do
-    movie_db_sample_return = {"page"=>1,
-    "results"=>
-     [{"adult"=>false,
-       "backdrop_path"=>"/pE1WR83KMP1wMzmqOLMUKUq8M6V.jpg",
-       "genre_ids"=>[28, 12, 80],
-       "id"=>1637,
-       "original_language"=>"en",
-       "original_title"=>"Speed",
-       "overview"=>
-        "Jack Traven, an LAPD cop on SWAT detail, and veteran SWAT officer Harry Temple thwart an extortionist-bomber's scheme for a $3 million ransom. As they corner the bomber, he flees and detonates a bomb vest, seemingly killing himself. Weeks later, Jack witnesses a mass transit city bus explode and nearby a pay phone rings. On the phone is that same bomber looking for vengeance and the money he's owed. He gives a personal challenge to Jack: a bomb is rigged on another city bus - if it slows down below 50 mph, it will explode - bad enough any day, but a nightmare in LA traffic. And that's just the beginning...",
-       "popularity"=>72.55,
-       "poster_path"=>"/o1Zs7VaS9y2GYH9CLeWxaVLWd3x.jpg",
-       "release_date"=>"1994-06-09",
-       "title"=>"Speed",
-       "video"=>false,
-       "vote_average"=>7.129,
-       "vote_count"=>5823}]
-    }.to_json
+    movie_db_sample_return = movie_db_sample.to_json
     WebMock.stub_request(:get, movie_db_uri).to_return(
       :status => 200, 
       :body => movie_db_sample_return, 
       :headers => {}
-      )
+    )
   end
 
   describe "GET /index" do
 
-
     it "renders a 422 response with no query" do
       # Movie.create! valid_attributes
       get movies_url, headers: valid_headers, as: :json
-      expect(response).to eq(422)
+      expect(response.status).to eq(422)
     end
 
     it "forwards requests to MovieDB" do
       # NOTE: passing a "params" argument passes Body parameters and converts the Request into a Post
       # There is no route corresponding to POST for this URI
 
-      expected_params = { api_key: 'a99cc60fc2b34dbb18cb806b8a88ed14', query: 'speed' }
-      uri = "#{movies_url}?query=speed"
       expect(Faraday).to receive(:get).with('https://api.themoviedb.org/3/search/movie', expected_params).and_call_original
-      get uri, headers: valid_headers, as: :json
+      get quiery_speed_uri, headers: valid_headers, as: :json
+    end
+
+    it "returns the expected output" do
+      get quiery_speed_uri, headers: valid_headers, as: :json
+      response_data = JSON.parse(response.body)
+
+      expect(response_data.length).to eq(1)
+      sorted_keys = ['overview', 'popularity', 'release_date', 'title']
+      expect(response_data.first.keys.sort).to eq(sorted_keys)
+      sorted_keys.each do |key|
+        expect(response_data.first[key]).to eq(movie_db_sample['results'].first[key])
+      end
+    end
+
+    it 'caches results from the API call' do
+      expect(Faraday).to receive(:get).
+        with('https://api.themoviedb.org/3/search/movie', expected_params).
+        once.and_call_original
+
+      2.times do
+        get quiery_speed_uri, headers: valid_headers, as: :json
+      end
     end
   end
 end

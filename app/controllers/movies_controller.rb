@@ -1,5 +1,4 @@
 class MoviesController < ApplicationController
-  # before_action :set_movie, only: %i[ show update destroy ]
 
   # GET /movies
   def index
@@ -10,9 +9,14 @@ class MoviesController < ApplicationController
     
     credentials = JSON.parse(ENV['MOVIEDB'])
     db_url = credentials['url']
-    db_params = { api_key: credentials['api_key'], query: params[:query] }
+    db_params = { query: params[:query] }
+    db_params = db_params.merge(page: params[:page]) if params[:page].present?
+    auth_params = { api_key: credentials['api_key'] }
+    cache_key = db_params.merge({MoviesController: :index}).to_json
     
-    db_response = Faraday.get(db_url, db_params)
+    db_response = Rails.cache.fetch(cache_key, expires_in: 5.minutes) do
+      Faraday.get(db_url, db_params.merge(auth_params))
+    end
     response_data = JSON.parse(db_response.body)
 
     unless db_response.status == 200
@@ -25,7 +29,7 @@ class MoviesController < ApplicationController
         title: m['title'], 
         overview: m['overview'], 
         popularity: m['popularity'],
-        date: m['release_date']
+        release_date: m['release_date']
       }
     end
     render json: movies
